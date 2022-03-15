@@ -1,0 +1,67 @@
+---
+title: "Simulation"
+author: "Tingbo Guo and Jose Cordova"
+output:
+  word_document: default
+  html_document:
+    df_print: paged
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+install.packages("ggplot2");library(ggplot2)
+library(MASS)
+install.packages("AER");library(AER)
+
+
+```
+
+
+```{r Simulation, echo=TRUE, message=FALSE, warning=FALSE}
+# We create a matrix of normally distributed variables which are correlated, from this we generate X and Q 
+XPoolAndQ <- mvrnorm(2000, c(30, 15), matrix(c(1, 0.5, 0.5, 1), 2, 2))
+XPool <- XPoolAndQ[, 1]
+Q<- XPoolAndQ[, 2]
+
+# Z is a normally distributed variable and is added to the X 
+Z <- rnorm(2000)
+X <- XPool + Z
+#There is a correlation between X and Q but not between Z and Q 
+cor(X,Q)
+cor(Z,Q)
+
+
+#We define Y as being determined by X and Q, this would be the true model of Y 
+Y <- 1 + X + Q + rnorm(1000, 0, 0.5)
+
+#The correctly specified model of Y includes Q 
+correct<-lm(Y~X+Q)
+
+
+ggplot(correct, aes(x = X+Q, y = Y)) + 
+  geom_point() +
+  stat_smooth(method = "lm", col = "red")
+
+
+#If we omit Q we obtain different results from the correctly specified model  
+reduced<-lm(Y~X)
+
+ggplot(reduced, aes(x = X, y = Y)) + 
+  geom_point() +
+  stat_smooth(method = "lm", col = "red")
+
+#In order to fix the mispecified model we create a linear model X with respect to Z
+X2<-lm(X~Z)$fitted.values
+
+#The model with respect to X2 is closer to the correctly specified model 
+adjusted<-lm(Y~X2)
+ggplot(adjusted, aes(x = X2, y = Y)) + 
+  geom_point() +
+  stat_smooth(method = "lm", col = "red")
+```
+```{r Alternative: use ivreg(), echo=TRUE, message=FALSE, warning=FALSE}
+#Alternitavely the package AER can be used and the function iverg() can give better models 
+ivreg()
+ivreg(Y~X|Z)
+
+```
