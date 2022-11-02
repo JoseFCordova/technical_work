@@ -1,10 +1,11 @@
 ---
 title: "Simulation"
-author: "Tingbo Guo and Jose Cordova"
+author: "Tingbo and Jose"
 output:
-  word_document: default
+  pdf_document: default
   html_document:
     df_print: paged
+  word_document: default
 ---
 
 ```{r setup, include=FALSE}
@@ -12,56 +13,88 @@ knitr::opts_chunk$set(echo = TRUE)
 install.packages("ggplot2");library(ggplot2)
 library(MASS)
 install.packages("AER");library(AER)
-
-
 ```
 
 
 ```{r Simulation, echo=TRUE, message=FALSE, warning=FALSE}
-# We create a matrix of normally distributed variables which are correlated, from this we generate X and Q 
-XPoolAndQ <- mvrnorm(2000, c(30, 15), matrix(c(1, 0.5, 0.5, 1), 2, 2))
+#1)data simulation 
+#matrix of normally distributed variables, from this we generate X Q which has the correlation coefficient=0.5
+XPoolAndQ <- mvrnorm(500, c(30, 25), matrix(c(1, 0.5, 0.5, 1), 2, 2))
 XPool <- XPoolAndQ[, 1]
 Q<- XPoolAndQ[, 2]
-
-# Z is a normally distributed variable and is added to the X 
-Z <- rnorm(2000)
+# Z is a normally distributed variable and is added to the X as observed x
+Z <- rnorm(500)
 X <- XPool + Z
-#There is a correlation between X and Q but not between Z and Q 
+#There is a correlation between X and Q but not between Z and Q()
+#Endogenous
 cor(X,Q)
-cor(Z,Q)
-
-
-#We define Y as being determined by X and Q, this would be the true model of Y 
-Y <- 1 + X + Q + rnorm(1000, 0, 0.5)
-
-#The correctly specified model of Y includes Q 
-correct<-lm(Y~X+Q)
-
-
-ggplot(correct, aes(x = X+Q, y = Y)) + 
-  geom_point() +
-  stat_smooth(method = "lm", col = "red")
-
-
+#define the true model in which Y as being determined by X and Q
+Y <- 1 + X + Q + rnorm(500, 0, 0.5)
+model_true<-lm(Y~X+Q)
+summary(model_true)
 #If we omit Q we obtain different results from the correctly specified model  
-reduced<-lm(Y~X)
-
-ggplot(reduced, aes(x = X, y = Y)) + 
+model_reduced<-lm(Y~X)
+summary(model_reduced)
+ggplot(model_reduced, aes(x = X, y = Y)) + 
   geom_point() +
-  stat_smooth(method = "lm", col = "red")
+  geom_smooth(method = lm, aes(fill="red"), col = "black")+
+  labs(title="Scatter Plot of the Reduced Model")+
+  theme_classic() 
 
-#In order to fix the mispecified model we create a linear model X with respect to Z
-X2<-lm(X~Z)$fitted.values
-
-#The model with respect to X2 is closer to the correctly specified model 
-adjusted<-lm(Y~X2)
-ggplot(adjusted, aes(x = X2, y = Y)) + 
+#2)2sls process
+#2.1) Choose the instrumental variable
+#Z can be seen as a instrumental variable
+#Z has highly correlation with X
+cor(X,Z)
+#Z only affect X
+cor(Z,Q)
+#obtain the fitted X by using the IV
+X_hat<-lm(X~Z)$fitted.values
+#The model with respect to X_hat is closer to the correctly specified model 
+model_IV<-lm(Y~X_hat)
+summary(model_IV)
+ggplot(model_reduced, aes(x = X_hat, y = Y)) + 
   geom_point() +
-  stat_smooth(method = "lm", col = "red")
+  geom_smooth(method = lm, aes(fill="red"), col = "black")+
+  labs(title="Scatter Plot of the Model_IV")+
+  theme_classic() 
 ```
+
 ```{r Alternative: use ivreg(), echo=TRUE, message=FALSE, warning=FALSE}
 #Alternitavely the package AER can be used and the function iverg() can give better models 
-ivreg()
 ivreg(Y~X|Z)
-
 ```
+
+```{r Simulation by Different Models(different n), echo=TRUE, message=FALSE, warning=FALSE}
+#n=50
+XPoolAndQ_50 <- mvrnorm(50, c(30, 25), matrix(c(1, 0.5, 0.5, 1), 2, 2))
+XPool_50 <- XPoolAndQ_50[, 1]
+Q_50<- XPoolAndQ_50[, 2]
+Z_50 <- rnorm(50)
+X_50 <- XPool_50 + Z_50
+Y_50 <- 1 + X_50 + Q_50 + rnorm(50, 0, 0.5)
+model_true50 <- lm(Y_50~X_50+Q_50)
+model_reduced50 <- lm(Y_50~X_50)
+model_IV50 <- ivreg(Y_50~X_50|Z_50)
+summary(model_true50)
+summary(model_reduced50)
+summary(model_IV50)
+#n=500
+model_true
+model_reduced
+model_IV
+#n=5000
+XPoolAndQ_5000 <- mvrnorm(5000, c(30, 25), matrix(c(1, 0.5, 0.5, 1), 2, 2))
+XPool_5000 <- XPoolAndQ_5000[, 1]
+Q_5000<- XPoolAndQ_5000[, 2]
+Z_5000 <- rnorm(5000)
+X_5000 <- XPool_5000 + Z_5000
+Y_5000 <- 1 + X_5000 + Q_5000 + rnorm(5000, 0, 0.5)
+model_true5000 <- lm(Y_5000~X_5000+Q_5000)
+model_reduced5000 <- lm(Y_5000~X_5000)
+model_IV5000 <- ivreg(Y_5000~X_5000|Z_5000)
+summary(model_true5000)
+summary(model_reduced5000)
+summary(model_IV5000)
+```
+
